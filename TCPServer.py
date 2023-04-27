@@ -1,30 +1,34 @@
-import socket
+from socket import *
+import os
 
-HOST = ''  # endereço IP do servidor
-PORT = 8000  # porta em que o servidor irá escutar
+porta = 12000
 
-# cria o socket TCP
-servidor = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+servidor = socket(AF_INET, SOCK_STREAM)
+servidor.bind(('', porta))
+servidor.listen(1)
 
-# faz o bind do socket com o endereço e porta especificados
-servidor.bind((HOST, PORT))
-
-# coloca o servidor para escutar por conexões
-servidor.listen()
-
-print(f'Servidor TCP escutando em {HOST}:{PORT}...')
+print("READY")
 
 while True:
-    # aceita uma conexão do cliente
-    conexao, endereco_cliente = servidor.accept()
-    print(f'Conexão recebida de {endereco_cliente}')
+    socket_conexao, endereco = servidor.accept()
+    requisicao = socket_conexao.recv(1024).decode()
+    
+    if requisicao.startswith('GET'):
+        nome_arquivo = requisicao.split()[1]
+        if nome_arquivo == '/':
+            nome_arquivo = '/index.html'
+            
+        if os.path.isfile('.' + nome_arquivo):
+            arquivo = open('.' + nome_arquivo, 'rb')
+            resposta = arquivo.read()
+            arquivo.close()
+            cabecalho = 'HTTP/1.1 200 OK\nContent-Type: text/html\n\n'
+        else:
+            resposta = 'Arquivo não encontrado'.encode()
+            cabecalho = 'HTTP/1.1 404 Not Found\nContent-Type: text/plain\n\n'
+    else:
+        resposta = 'Método não suportado'.encode()
+        cabecalho = 'HTTP/1.1 405 Method Not Allowed\nContent-Type: text/plain\n\n'
 
-    # lê o conteúdo do arquivo "index.html"
-    with open('index.html', 'rb') as arquivo:
-        conteudo = arquivo.read()
-
-    # envia o conteúdo do arquivo para o cliente
-    conexao.sendall(b'HTTP/1.0 200 OK\r\nContent-Type: text/html\r\n\r\n' + conteudo)
-
-    # fecha a conexão
-    conexao.close()
+    socket_conexao.send(cabecalho.encode() + resposta)
+    socket_conexao.close()
